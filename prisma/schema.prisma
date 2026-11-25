@@ -1,0 +1,244 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model StudyCode {
+  id          String       @id @default(cuid())
+  codeHash    String       @unique
+  createdAt   DateTime     @default(now())
+  expiresAt   DateTime?
+  participant Participant?
+}
+
+model Participant {
+  id             String                  @id @default(cuid())
+  publicId       String                  @unique
+  codeId         String                  @unique
+  code           StudyCode               @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  consentAt      DateTime?
+  consentVersion String?
+  role           String?
+  roles          Json                    @default("[]")
+  experience     Int?
+  genres         String?
+  status         String?
+  tools          String?
+  aiExperience   String?
+  activeRole     String?
+  stage          String                  @default("Initiate")
+  mode           String                  @default("")
+  createdAt      DateTime                @default(now())
+  spentCents     Int                     @default(0)
+  sessions       StudySession[]
+  events         ResearchEvent[]
+  artefacts      Artefact[]
+  annotations    Annotation[]
+  diary          DiaryEntry[]
+  uploads        Upload[]
+  workflows      WorkflowSnapshot[]
+  future         FutureProposal?
+  questionnaires QuestionnaireResponse[]
+  mutations      StudyMutation[]
+}
+
+model StudySession {
+  id            String                  @id @default(cuid())
+  tokenHash     String                  @unique
+  participantId String
+  participant   Participant             @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime                @default(now())
+  endedAt       DateTime?
+  expiresAt     DateTime
+  events        ResearchEvent[]
+  artefacts     Artefact[]
+  annotations   Annotation[]
+  diary         DiaryEntry[]
+  uploads       Upload[]
+  workflows     WorkflowSnapshot[]
+  proposals     FutureProposal[]
+  questionnaires QuestionnaireResponse[]
+  mutations     StudyMutation[]
+
+  @@index([participantId, createdAt])
+}
+
+model ResearchConfig {
+  id             String   @id @default("study")
+  consentText    String
+  consentVersion String
+  configVersion  String   @default("builtin-1")
+  allowedModes   Json
+  suggestions    Json
+  questionnaires Json
+  updatedAt      DateTime @updatedAt
+}
+
+model ResearchConfigRevision {
+  version   String   @id
+  snapshot  Json
+  createdAt DateTime @default(now())
+}
+
+model ResearchEvent {
+  sequence      Int          @id @default(autoincrement())
+  id            String       @unique
+  participantId String
+  participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  artefactId    String?
+  type          String
+  data          Json
+  createdAt     DateTime     @default(now())
+
+  @@index([participantId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([artefactId, createdAt])
+}
+
+model StudyMutation {
+  id            String       @id
+  participantId String
+  participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  action        String
+  resultId      String?
+  createdAt     DateTime     @default(now())
+
+  @@index([participantId, action])
+}
+
+model Artefact {
+  id            String       @id @default(cuid())
+  participantId String
+  participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  parentId      String?
+  parent        Artefact?    @relation("ArtefactLineage", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  versions      Artefact[]   @relation("ArtefactLineage")
+  requestKey    String?      @unique
+  title         String
+  text          String
+  outputType    String
+  origin        String
+  backend       String
+  status        String
+  model         String?
+  systemPrompt  String?
+  imagePrompt   String?
+  prompt        String
+  promptSource  String
+  suggestionId  String?
+  mode          String
+  parameters    Json
+  response      Json
+  createdAt     DateTime     @default(now())
+  decision      String?
+  reflection    String?
+  imageUrl      String?
+  workflow      Json?
+  annotations   Annotation[]
+
+  @@index([participantId, createdAt])
+  @@index([parentId])
+  @@index([backend, status])
+}
+
+model Annotation {
+  id            String       @id @default(cuid())
+  participantId String
+  participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  artefactId    String
+  artefact      Artefact     @relation(fields: [artefactId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  text          String
+  createdAt     DateTime     @default(now())
+
+  @@index([artefactId, createdAt])
+}
+
+model DiaryEntry {
+  id            String       @id @default(cuid())
+  participantId String
+  participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  artefactId    String?
+  attachmentId  String?
+  answers       Json
+  createdAt     DateTime     @default(now())
+
+  @@index([participantId, createdAt])
+}
+
+model Upload {
+  id            String       @id @default(cuid())
+  participantId String
+  participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  name          String
+  dataUrl       String
+  purpose       String
+  createdAt     DateTime     @default(now())
+
+  @@index([participantId, createdAt])
+}
+
+model WorkflowSnapshot {
+  id            String       @id @default(cuid())
+  participantId String
+  participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  title         String
+  nodes         Json
+  edges         Json
+  svg           String?
+  png           String?
+  createdAt     DateTime     @default(now())
+
+  @@index([participantId, createdAt])
+}
+
+model FutureProposal {
+  id            String       @id @default(cuid())
+  participantId String       @unique
+  participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  description   String
+  acceptable    String
+  unacceptable  String
+  sketchId      String?
+  artefactId    String?
+  finalized     Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model QuestionnaireResponse {
+  id            String       @id @default(cuid())
+  participantId String
+  participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  instrumentId  String
+  version       String
+  timing        String
+  activity      String?
+  artefactId    String?
+  responses     Json
+  createdAt     DateTime     @default(now())
+
+  @@index([participantId, createdAt])
+  @@index([instrumentId, version])
+}
